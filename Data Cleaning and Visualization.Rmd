@@ -1,0 +1,28 @@
+---
+title: "Data Cleaning and Visualization"
+author: "Simona Rahi"
+date: "1/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data and Library Importing
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# importing necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# reading in the data
+```
+
+
+
+## Data Cleaning
+
+## Data Exploration
+
+## Data Visualization
