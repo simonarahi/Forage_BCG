@@ -15,14 +15,174 @@ knitr::opts_chunk$set(echo = TRUE)
 # importing necessary libraries
 library(ggplot2)
 library(dplyr)
+library(naniar)
+library(tidyr)
+library(reshape2)
+library(data.table)
+```
 
-# reading in the data
+```{r}
+# reading in the data and making sure to read empty cells as NA 
+tr_data <- read.csv('ml_case_training_data.csv', na.strings = c("", "NA"))
+tr_output <- read.csv('ml_case_training_output.csv', na.strings = c("", "NA"))
+tr_hist <- read.csv('ml_case_training_hist_data.csv', na.strings = c("", "NA"))
+```
+
+tr_data includes information on the customers, with the 'id' being the unique key for each customer. This dataframe contains 16096 rows, meaning 16096 customers. 
+
+tr_output also includes 16096 rows and each row indicates whether the corresponding customer (referenced with the id) churned or not.
+
+tr_hist includes historical price information (both fixed price and variable price) over the span of a year (2015, from January till December). We have 193002 rows, which does not seem right because if each of the 16096 customers had price information over a year, that would mean we should have 16096*12=193152 rows, so we will look into this below as well.
+
+## Data Cleaning and Anomaly Detection
+
+```{r}
+# checking if customer ID is actually unique as it should be (in tr_data and tr_output)
+unique_id <- unique(tr_data$id)
+length(unique_id)
+
+unique_id1 <- unique(tr_hist$id)
+length(unique_id1)
+```
+Indeed it is in both. So we do have 16096 customers.
+
+**Let's check the anomaly in the price history**
+
+```{r}
+# checking how many unique customers we have
+unique_id_hist <- unique(tr_hist$id)
+length(unique_id_hist)
+```
+
+The number is correct and matches the other datasets. So it seems that some customers do not have price data for the 12 months of 2015.
+
+```{r}
+row_per_customer <- tr_hist %>% group_by(id) %>% summarise(count=n()) %>% arrange(count) %>% ungroup() %>% as.data.frame() 
+
+# writing function to check how many customers have less than 12 months reported for price history
+anomalies <- c()
+for (i in 1:nrow(row_per_customer)){
+  
+  if (row_per_customer$count[i] < 12) {
+  anomalies[i] <- row_per_customer$id[i]
+  }
+}
+
+length(anomalies)
+```
+
+We see that 106 customers have less than 12 months reported for price history. 
+
+#### Types of Columns 
+
+```{r}
+# starting with tr_data
+sapply(tr_data, class)
+```
+
+We need to change dates into date type instead of factor.
+
+```{r}
+# changing corresponding column types to Date
+
+tr_data$date_activ <- as.Date(tr_data$date_activ, format = '%Y-%m-%d')
+tr_data$date_activ <- as.Date(tr_data$date_end, format = '%Y-%m-%d')
+tr_data$date_activ <- as.Date(tr_data$date_first_activ, format = '%Y-%m-%d')
+tr_data$date_activ <- as.Date(tr_data$date_modif_prod, format = '%Y-%m-%d')
+tr_data$date_activ <- as.Date(tr_data$date_modif_prod, format = '%Y-%m-%d')
+
 ```
 
 
+```{r}
+# now on tr_hist
+sapply(tr_hist, class)
+```
 
-## Data Cleaning
+Same issue with the date.
 
-## Data Exploration
+```{r}
+tr_hist$price_date <- as.Date(tr_hist$price_date, format = '%Y-%m-%d')
+```
 
-## Data Visualization
+
+```{r}
+# finally on tr_output
+sapply(tr_output, class)
+```
+
+Churn is actually a factor, where 1 indicates yes and 0 indicates no.
+
+```{r}
+tr_output$churn <- as.factor(tr_output$churn)
+```
+
+
+#### Missing Values Exploration
+
+We will use a package that helps us easily visualize missing values, it is called naniar. 
+
+```{r}
+vis_miss(tr_output)
+```
+
+No missing values in the dataframe tr_output.
+
+```{r}
+vis_miss(tr_data)
+```
+
+In tr_data, we have some columns with missing values. The column campaign_disc_ele is all empty and should be dropped.
+
+```{r}
+tr_data <- subset(tr_data, select = -c(campaign_disc_ele))
+```
+
+
+```{r}
+vis_miss(tr_hist, warn_large_data = FALSE)
+```
+
+In tr_hist, most of the dataset is complete, exactly 99.5% of it. The missing values are all prices so we can replace them with the average price in that column. 
+
+```{r}
+# replacing missing value with mean of column
+for (i in 3:ncol(tr_hist)){
+  tr_hist[is.na(tr_hist[,i]), i] <- mean(tr_hist[,i], na.rm = TRUE)
+}
+```
+
+#### Shape Transformation
+
+Since the dataframe tr_hist is in long format, we can't really join it on the other datasets if needed. So we will transform it to wide format, so now each row will represent a customer (similar to the others), and we will have a column for each month for each price.
+
+```{r}
+# transforming to wide format
+wide_tr_hist <- dcast(setDT(tr_hist), id~price_date, value.var=c('price_p1_var', 'price_p2_var', 'price_p3_var', 'price_p1_fix', 'price_p2_fix', 'price_p3_fix'))
+```
+
+```{r}
+df1 <- merge(tr_data, tr_output, by = 'id')
+big_df <- merge(df1, wide_tr_hist, by ='id')
+```
+
+```{r}
+library(ggcorrplot)
+ggcorrplot(big_df, type = 'lower', outline.col = 'black', lab=TRUE, ggtheme = ggplot2::theme_gray, colors = c('#6D9EC1', 'white', '#E46726'))
+```
+
+
+## Data Exploration and Visualization
+
+How many churned and non churned do we have 
+
+```{r}
+g <- ggplot(tr_output, aes(churn))
+g + geom_bar()
+```
+
+Most of the customer we have in the dataset did not churn. There is a large discrepancy between the numbers.
+
+**Summary Statistics**
+
+**Distribution of some parameters**
