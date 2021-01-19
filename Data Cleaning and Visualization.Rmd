@@ -132,10 +132,11 @@ No missing values in the dataframe tr_output.
 vis_miss(tr_data)
 ```
 
-In tr_data, we have some columns with missing values. The column campaign_disc_ele is all empty and should be dropped.
+In tr_data, we have some columns with missing values. The column campaign_disc_ele is all empty and should be dropped. We will also drop columns that have more than 75% missing values.
 
 ```{r}
-tr_data <- subset(tr_data, select = -c(campaign_disc_ele))
+tr_data <- subset(tr_data, select = -c(campaign_disc_ele, date_first_activ, forecast_base_bill_ele,
+                                       forecast_base_bill_year, forecast_bill_12m, forecast_cons))
 ```
 
 
@@ -166,23 +167,37 @@ df1 <- merge(tr_data, tr_output, by = 'id')
 big_df <- merge(df1, wide_tr_hist, by ='id')
 ```
 
-```{r}
-library(ggcorrplot)
-ggcorrplot(big_df, type = 'lower', outline.col = 'black', lab=TRUE, ggtheme = ggplot2::theme_gray, colors = c('#6D9EC1', 'white', '#E46726'))
-```
 
 
 ## Data Exploration and Visualization
 
-How many churned and non churned do we have 
+**How many churned and retained companies do we have?**
 
 ```{r}
 g <- ggplot(tr_output, aes(churn))
-g + geom_bar()
+g + geom_bar() + ggtitle('Number of Companies that have Churned (1) or Retained (0)') + theme_classic()
 ```
 
-Most of the customer we have in the dataset did not churn. There is a large discrepancy between the numbers.
+Most of the customer companies we have in the dataset retained. There is a large discrepancy between the numbers.
 
-**Summary Statistics**
+#### Summary Statistics
 
-**Distribution of some parameters**
+```{r}
+summary(big_df)
+```
+
+We notice alot of zeros in the price history, and some months even have the minimum price negative. This is probably a mistake.
+
+#### Distribution of some parameters
+
+```{r}
+big_df %>% group_by(activity_new) %>% summarise(count=n()) %>% arrange(desc(count))
+```
+
+
+
+
+
+
+
+
