@@ -14,4 +14,4 @@ One of the hypotheses under consideration is that churn is driven by the custome
 
 The Lead Data Scientist (LDS) held an initial team meeting to discuss various hypotheses, including churn due to price sensitivity. After discussion with your team, you have been asked to go deeper on the hypothesis that the churn is driven by the customers’ price sensitivities."
 
-My email draft is attached under task 1 as a PDF.
+My email draft is attached under task1-business-understanding.
